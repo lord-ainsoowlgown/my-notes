@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "44194829747",
+    "project_id": "my-notez-flutter",
+    "storage_bucket": "my-notez-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:44194829747:android:7c84a11a688a9ad57be7c6",
+        "android_client_info": {
+          "package_name": "com.ainsoowlgown.mynotes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBldb61JO0BwzeBiQMNPMvi88BGEHLvkh0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
