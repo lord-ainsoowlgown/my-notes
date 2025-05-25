@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mynotes/constants/routes.dart';
+import 'package:mynotes/services/auth/auth_exceptions.dart';
+import 'package:mynotes/services/auth/auth_service.dart';
+import 'package:mynotes/utilites/show_error_dialog.dart';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -44,12 +47,12 @@ class _RegisterViewState extends State<RegisterView> {
           ),
           TextField(
             controller: _password,
-      
+
             // Make our password text field secure
             obscureText: true,
             enableSuggestions: false,
             autocorrect: false,
-      
+
             decoration: InputDecoration(
               labelText: 'Password',
               hintText: 'Enter your password here',
@@ -59,28 +62,30 @@ class _RegisterViewState extends State<RegisterView> {
             onPressed: () async {
               final email = _email.text;
               final password = _password.text;
-      
+
               try {
-                final UserCredential = await FirebaseAuth.instance
-                    .createUserWithEmailAndPassword(
+                await AuthService.firebase().createUser(
                       email: email,
                       password: password,
                     );
-                print('User registered: ${UserCredential}');
-      
-              } on FirebaseAuthException catch (e) {
-                if (e.code == 'invalid-email') {
-                  print('Invalid email address');
-                } else if (e.code == 'weak-password') {
-                  print('Weak password');
-                } else if (e.code == 'email-already-in-use') {
-                  print('Email already in use');
-                } else if (e.code == 'network-request-failed') {
-                  print('No Internet connection available');
-                } else {
-                  print('Something else happened!');
-                  print(e.code);
-                }
+
+                await AuthService.firebase().sendEmailVerification();
+                Navigator.of(context).pushNamed(
+                  verifyEmailRoute,
+                );
+              } on InvalidEmailException {
+                await showErrorDialog(context, 'Invalid email address');
+              } on WeakPasswordException {
+                await showErrorDialog(context, 'Weak password');
+              } on EmailAlreadyInUseException {
+                await showErrorDialog(context, 'Email already in use');
+              } on InternetRequestFailedException {
+                await showErrorDialog(
+                  context,
+                  'No Internet connection available',
+                );
+              } on GenericException {
+                await showErrorDialog(context, 'Failde to register');
               }
             },
             child: const Text('Register'),
@@ -89,7 +94,7 @@ class _RegisterViewState extends State<RegisterView> {
             onPressed: () {
               Navigator.of(
                 context,
-              ).pushNamedAndRemoveUntil('/login/', (route) => false);
+              ).pushNamedAndRemoveUntil(loginRoute, (route) => false);
             },
             child: const Text('Already registered? Login here!'),
           ),

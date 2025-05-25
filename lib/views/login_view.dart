@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mynotes/constants/routes.dart';
+import 'package:mynotes/services/auth/auth_exceptions.dart';
+import 'package:mynotes/services/auth/auth_service.dart';
+import 'package:mynotes/utilites/show_error_dialog.dart';
+import 'dart:developer' as devtools show log; 
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -44,12 +48,12 @@ class _LoginViewState extends State<LoginView> {
           ),
           TextField(
             controller: _password,
-      
+
             // Make our password text field secure
             obscureText: true,
             enableSuggestions: false,
             autocorrect: false,
-      
+
             decoration: InputDecoration(
               labelText: 'Password',
               hintText: 'Enter your password here',
@@ -59,21 +63,41 @@ class _LoginViewState extends State<LoginView> {
             onPressed: () async {
               final email = _email.text;
               final password = _password.text;
-      
+
               try {
-                final userCredential = await FirebaseAuth.instance
-                    .signInWithEmailAndPassword(email: email, password: password);
-                print('User logged In: ${userCredential}');
-              } on FirebaseAuthException catch (e) {
-                print('Error: ${e.code}');
-                if (e.code == 'invalid-credential') {
-                  print('Invalid credentials');
-                } else if (e.code == 'network-request-failed') {
-                  print('No Internet connection available');
+                await AuthService.firebase().logIn(
+                  email: email,
+                  password: password,
+                );
+
+                final user = AuthService.firebase().currentUser;
+                devtools.log(
+                  'User logged in: ${user?.isEmailVerified}',
+                );
+                if (user?.isEmailVerified ?? false) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil(notesRoute, (route) => false);
                 } else {
-                  print('Something else happened!');
-                  print(e.code);
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil(verifyEmailRoute, (route) => false);
                 }
+              } on InvalidCredentialsException {
+                await showErrorDialog(
+                  context,
+                  'Invalid Credentials',
+                );
+              } on InternetRequestFailedException {
+                await showErrorDialog(
+                  context,
+                  'Wrong credentials, please try again',
+                );
+              } on GenericException {
+                await showErrorDialog(
+                  context,
+                  'Authentication error',
+                );
               }
             },
             child: const Text('Login'),
@@ -82,7 +106,7 @@ class _LoginViewState extends State<LoginView> {
             onPressed: () {
               Navigator.of(
                 context,
-              ).pushNamedAndRemoveUntil('/register/', (route) => false);
+              ).pushNamedAndRemoveUntil(registerRoute, (route) => false);
             },
             child: const Text('Not register yet? Register here!'),
           ),
