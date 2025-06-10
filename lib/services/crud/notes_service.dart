@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mynotes/extensions/list/filter.dart';
 import 'package:mynotes/services/crud/crud_exceptions.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' show join;
@@ -10,6 +11,8 @@ class NotesService {
 
   List<DatabaseNote> _notes = [];
 
+  DatabaseUser? _user;
+
   static final NotesService _shared = NotesService._sharedInstance();
   NotesService._sharedInstance() {
     _notesStreamController = StreamController<List<DatabaseNote>>.broadcast(
@@ -18,18 +21,36 @@ class NotesService {
       },
     );
   }
+  
   factory NotesService() => _shared;
 
   late final StreamController<List<DatabaseNote>> _notesStreamController;
 
-  Stream<List<DatabaseNote>> get allNotes => _notesStreamController.stream;
+  Stream<List<DatabaseNote>> get allNotes =>
+      _notesStreamController.stream.filter((note) {
+        final currentUser = _user;
+        if (currentUser != null) {
+          return note.userId == currentUser.id;
+        } else {
+          throw UserShouldBeSetBeforeReadingAllNotesException();
+        }
+      });
 
-  Future<DatabaseUser> getOrCreateUser({required String email}) async {
+  Future<DatabaseUser> getOrCreateUser({
+    required String email,
+    bool setAsCurrentUser = true,
+  }) async {
     try {
       final existingUser = await getUser(email: email);
+      if (setAsCurrentUser) {
+        _user = existingUser; // Set the current user if requested
+      }
       return existingUser;
     } on UserNotFoundException {
       final newUser = await createUser(email: email);
+      if (setAsCurrentUser) {
+        _user = newUser; // Set the newly created user as current user
+      }
       return newUser;
     } catch (e) {
       rethrow;
@@ -56,7 +77,9 @@ class NotesService {
       {
         textColumn: text,
         isSyncedWithCloudColumn: 0, // Mark as not synced with cloud
-      }
+      },
+      where: 'id = ?',
+      whereArgs: [note.id],
     );
 
     if (updatedCount == 0) {
@@ -127,12 +150,10 @@ class NotesService {
     }
   }
 
-  Future<DatabaseNote> createNote({
-    required DatabaseUser owner
-  }) async {
+  Future<DatabaseNote> createNote({required DatabaseUser owner}) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
-    
+
     // Ensure the owner exists in the database with the correct id
     final dbUser = await getUser(email: owner.email);
     if (dbUser.id != owner.id) {
@@ -141,14 +162,11 @@ class NotesService {
 
     const text = '';
     // Create a new note with the provided owner
-    final noteId = await db.insert(
-      noteTable,
-      {
-        userIdColumn: owner.id,
-        textColumn: text,
-        isSyncedWithCloudColumn: 1, // Default to false
-      },
-    );
+    final noteId = await db.insert(noteTable, {
+      userIdColumn: owner.id,
+      textColumn: text,
+      isSyncedWithCloudColumn: 1, // Default to false
+    });
 
     final note = DatabaseNote(
       id: noteId,
@@ -195,11 +213,10 @@ class NotesService {
       throw UserAlreadyExistsException();
     }
 
-    final userId = await db.insert(userTable, {emailColumn: email.toLowerCase()});
-    return DatabaseUser(
-      id: userId,
-      email: email.toLowerCase(),
-    );
+    final userId = await db.insert(userTable, {
+      emailColumn: email.toLowerCase(),
+    });
+    return DatabaseUser(id: userId, email: email.toLowerCase());
   }
 
   Future<void> deleteUser({required String email}) async {
